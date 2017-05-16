@@ -11,6 +11,7 @@ Options:
   -w, --password        пароль пользользователя, под которым происходит подключение
   -d, --dbname          имя БД, в которую юудет производится импорт данных
   -p, --port            порт для подключения к БД
+  -s, --schema          схема для загрузки данных
   -f, --file            путь до файла MapInfo с расширением mif или tab
 """
 __author__ = 'vladimir.rybalko@gmail.com (Vladimir Rybalko)'
@@ -35,6 +36,7 @@ def ParseInputs():
   parser.add_option('-w', '--password', dest='password', default='', help="The user's password")
   parser.add_option('-p', '--port', dest='port', default='5432', help='The port to connect the PG')
   parser.add_option('-d', '--dbname', dest='databaseName', default='postgres', help='The database name to connect the PG')
+  parser.add_option('-s', '--schema', dest='schema', default='public', help='The schema for importing data to database')
    
   parser.add_option('-f','--file', dest='file', help='The file to import PG')
  
@@ -59,6 +61,14 @@ def ParseInputs():
   if options.file is None or os.path.isfile(options.file) is False or (options.file.lower().endswith(('.mif')) or options.file.lower().endswith(('.tab'))) is False:
     print ('-f (file) задан не задан или задан не правильно')
     invalid_args = True
+  conn = psycopg2.connect("dbname='%s' user='%s' host='%s' password='%s'" % (options.databaseName, options.userName, options.host, options.password))
+  cur = conn.cursor()
+  cur.execute("SELECT schema_name FROM information_schema.schemata WHERE schema_name = '{}'".format(options.schema))
+  if cur.fetchone() is None:
+    print ('-s (schema) is not correct')
+    invalid_args = True
+  cur.close()
+  conn.close()
   if invalid_args:
     sys.exit(4)
   return options
@@ -88,6 +98,7 @@ def main():
   for l in range( dataSource.GetLayerCount() ):
     layer = dataSource.GetLayer(l)
     layerName = layer.GetName()
+    layerName = options.schema + '.' + layerName
     spatialRef = layer.GetSpatialRef()
     
     fields = []
